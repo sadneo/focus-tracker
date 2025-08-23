@@ -1,0 +1,13 @@
+frontend: javascript
+backend: rust
+
+set up a background process that subscribes to sway window changes
+for every window change, see if new windows have opened or if focus has been changed
+at every timestamp like this, write into the json array
+
+frontend draws the gantt chart from the json file
+renders it and loads it right there
+
+* Features to add?
+  Reading initial applications and storing that in the output as context
+  Customizing the output path
