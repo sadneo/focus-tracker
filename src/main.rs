@@ -1,9 +1,11 @@
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{Seek, SeekFrom};
+use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::SystemTime;
+
+use tokio::fs::{self, OpenOptions};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,18 +18,19 @@ struct EventObject {
     app_id: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let log_path = PathBuf::from(std::env::var("XDG_STATE_HOME").expect("$XDG_STATE_HOME invalid"))
         .join("focus-tracker.json");
     println!("{}", log_path.display());
 
-    match fs::exists(&log_path) {
+    match fs::try_exists(&log_path).await {
         Ok(true) => (),
         Ok(false) => {
-            if let Err(e) = fs::write(&log_path, b"[]") {
+            if let Err(e) = fs::write(&log_path, b"[]").await {
                 eprintln!("error: {}", e);
             }
-        },
+        }
         Err(e) => eprintln!("error: {}", e),
     }
 
@@ -41,27 +44,21 @@ fn main() {
 
         let object: HashMap<String, Value> =
             serde_json::from_slice(&sub_result.stdout).expect("serde from_json failed");
-        add_log(object, &log_path).expect("add log failed");
+        add_log(object, &log_path).await.expect("add log failed");
     }
 }
 
-fn add_log(object: HashMap<String, Value>, path: &PathBuf) -> std::io::Result<()> {
+async fn add_log(object: HashMap<String, Value>, path: &PathBuf) -> std::io::Result<()> {
     let change_type = object.get("change").unwrap().as_str().unwrap().to_owned();
     if !matches!(change_type.as_str(), "new" | "close" | "focus") {
         return Ok(());
     }
 
     let timestamp = SystemTime::now();
-    let container = object
-        .get("container")
-        .unwrap()
-        .as_object()
-        .unwrap();
-    let id = container.get("id")
-        .unwrap()
-        .as_i64()
-        .unwrap();
-    let app_id = container.get("app_id")
+    let container = object.get("container").unwrap().as_object().unwrap();
+    let id = container.get("id").unwrap().as_i64().unwrap();
+    let app_id = container
+        .get("app_id")
         .unwrap()
         .as_str()
         .unwrap()
@@ -75,17 +72,23 @@ fn add_log(object: HashMap<String, Value>, path: &PathBuf) -> std::io::Result<()
         app_id,
     };
 
+    #[allow(clippy::suspicious_open_options)]
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(path)?;
+        .open(path)
+        .await?;
 
-    let mut events: Vec<EventObject> = serde_json::from_reader(&file).unwrap_or_default();
+    let mut file_contents = vec![];
+    file.read_to_end(&mut file_contents).await?;
+
+    let mut events: Vec<EventObject> = serde_json::from_slice(&file_contents).unwrap_or_default();
     events.push(new_event);
-    file.set_len(0)?;
-    file.seek(SeekFrom::Start(0))?;
-    serde_json::to_writer_pretty(&file, &events)?;
+    file.set_len(0).await?;
+    file.seek(SeekFrom::Start(0)).await?;
+    let ser_contents = serde_json::to_vec_pretty(&events)?;
+    file.write_all(&ser_contents).await?;
 
     Ok(())
 }
