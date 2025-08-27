@@ -1,11 +1,11 @@
 use std::collections::HashMap;
-use std::fs::OpenOptions;
-use std::io::{Seek, SeekFrom};
+use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::SystemTime;
 
-use tokio::fs;
+use tokio::fs::{self, OpenOptions};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -30,7 +30,7 @@ async fn main() {
             if let Err(e) = fs::write(&log_path, b"[]").await {
                 eprintln!("error: {}", e);
             }
-        },
+        }
         Err(e) => eprintln!("error: {}", e),
     }
 
@@ -55,16 +55,10 @@ async fn add_log(object: HashMap<String, Value>, path: &PathBuf) -> std::io::Res
     }
 
     let timestamp = SystemTime::now();
-    let container = object
-        .get("container")
-        .unwrap()
-        .as_object()
-        .unwrap();
-    let id = container.get("id")
-        .unwrap()
-        .as_i64()
-        .unwrap();
-    let app_id = container.get("app_id")
+    let container = object.get("container").unwrap().as_object().unwrap();
+    let id = container.get("id").unwrap().as_i64().unwrap();
+    let app_id = container
+        .get("app_id")
         .unwrap()
         .as_str()
         .unwrap()
@@ -78,19 +72,23 @@ async fn add_log(object: HashMap<String, Value>, path: &PathBuf) -> std::io::Res
         app_id,
     };
 
-    // tokio here
-    tokio::task::spawn_blocking(move || {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
+    #[allow(clippy::suspicious_open_options)]
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(path)
+        .await?;
 
-        let mut events: Vec<EventObject> = serde_json::from_reader(&file).unwrap_or_default();
-        events.push(new_event);
-        file.set_len(0)?;
-        file.seek(SeekFrom::Start(0))?;
-        serde_json::to_writer_pretty(&file, &events)?;
-    }).await.unwrap();
+    let mut file_contents = vec![];
+    file.read_to_end(&mut file_contents).await?;
+
+    let mut events: Vec<EventObject> = serde_json::from_slice(&file_contents).unwrap_or_default();
+    events.push(new_event);
+    file.set_len(0).await?;
+    file.seek(SeekFrom::Start(0)).await?;
+    let ser_contents = serde_json::to_vec_pretty(&events)?;
+    file.write_all(&ser_contents).await?;
+
     Ok(())
 }
