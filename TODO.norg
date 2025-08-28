@@ -8,6 +8,11 @@ at every timestamp like this, write into the json array
 frontend draws the gantt chart from the json file
 renders it and loads it right there
 
+frontend: react
+use HSV to generate colors with the same saturation and value for consistency
+iterate through the list of events to find app_ids, generate colors for those app ids based on those
+throw all of the app ids 
+
 * Features to add?
   Reading initial applications and storing that in the output as context
   Customizing the output path
