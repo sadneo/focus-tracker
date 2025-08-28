@@ -95,12 +95,11 @@ async fn add_log(
     let timestamp = SystemTime::now();
     let container = object.get("container").unwrap().as_object().unwrap();
     let id = container.get("id").unwrap().as_i64().unwrap();
-    let app_id = container
-        .get("app_id")
-        .unwrap()
-        .as_str()
-        .unwrap()
-        .to_owned();
+    let app_id = match container.get("app_id").unwrap() {
+        Value::String(value) => value.to_owned(),
+        Value::Null => container.get("window_properties").unwrap().get("class").unwrap().as_str().unwrap().to_owned(),
+        _ => panic!(),
+    };
 
     println!("{change_type} {id} {app_id}");
     let new_event = EventObject {
