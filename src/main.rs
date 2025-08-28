@@ -12,6 +12,8 @@ use tokio::sync::Mutex;
 use axum::{Json, Router, extract::State, routing::get};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tower_http::services::ServeDir;
+use tower_http::cors::CorsLayer;
 
 #[derive(Deserialize, Serialize)]
 struct EventObject {
@@ -58,7 +60,8 @@ async fn main() {
                 Json(ser_contents)
             }),
         )
-        .fallback_service(tower_http::services::ServeDir::new("frontend/dist"))
+        .fallback_service(ServeDir::new("frontend/dist"))
+        .layer(CorsLayer::very_permissive())
         .with_state(events.clone());
 
     let listener = tokio::net::TcpListener::bind("localhost:3000")
