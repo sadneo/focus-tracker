@@ -15,7 +15,7 @@ use serde_json::Value;
 use tower_http::services::ServeDir;
 use tower_http::cors::CorsLayer;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 struct EventObject {
     change_type: String,
     timestamp: SystemTime,
@@ -56,8 +56,7 @@ async fn main() {
             "/api/data",
             get(|State(state): State<EventState>| async move {
                 let events_guard = state.lock().await;
-                let ser_contents = serde_json::to_string_pretty(&*events_guard).unwrap();
-                Json(ser_contents)
+                Json((*events_guard).clone())
             }),
         )
         .fallback_service(ServeDir::new("frontend/dist"))
