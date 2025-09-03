@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 
-import Summary from './components/Summary'
-import type { EventObject } from './types'
+import Summary from "./components/Summary";
+import type { EventObject } from "./types";
 
-import collapseIcon from './assets/collapse.svg'
-import refreshIcon from './assets/refresh.svg'
-import './App.css'
-
+import collapseIcon from "./assets/collapse.svg";
+import refreshIcon from "./assets/refresh.svg";
+import "./App.css";
 
 function App() {
   const [data, setData] = useState<EventObject[]>([]);
@@ -19,7 +18,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
-  }, [])
+  }, []);
 
   return (
     <>
@@ -34,7 +33,7 @@ function App() {
       <div className="chartArea">Chart</div>
       <Summary data={data} />
     </>
-  )
+  );
 }
 
-export default App
+export default App;
