@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-import Summary from "./components/Summary";
+import Chart from "./components/Chart";
 import type { EventObject } from "./types";
 
 import collapseIcon from "./assets/collapse.svg";
@@ -30,8 +30,8 @@ function App() {
         </div>
       </div>
       <hr />
-      <div className="chartArea">Chart</div>
-      <Summary data={data} />
+      <Chart data={data} />
+      <div>Summary</div>
     </>
   );
 }
